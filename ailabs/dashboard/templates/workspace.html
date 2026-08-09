@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Workspace{% endblock %}
+
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Workspace</h1>
+    <p class="muted">File hasil kerja agent per project — root: <code class="mono">{{ root }}</code></p>
+  </div>
+</header>
+
+<div class="ws-layout">
+  <section class="panel ws-tree-panel">
+    <h2>File tree</h2>
+    <ul class="tree" id="tree">
+      {% macro render(nodes) %}
+        {% for n in nodes %}
+        <li>
+          {% if n.type == 'dir' %}
+          <details open>
+            <summary class="tree-dir">
+              <span class="caret"></span><span class="tree-name">{{ n.name }}</span>
+              {% if n.job_id %}<a class="tree-job" href="/jobs/{{ n.job_id }}">→ job</a>{% endif %}
+            </summary>
+            <ul class="tree">{% if n.children %}{{ render(n.children) }}{% endif %}</ul>
+          </details>
+          {% else %}
+          <div class="tree-file" data-path="{{ n.path }}">
+            <span class="tree-name">{{ n.name }}</span>
+            <span class="tree-size mono">{{ n.size }} B</span>
+            {% if n.job_id %}<a class="tree-job" href="/jobs/{{ n.job_id }}">→ job</a>{% endif %}
+          </div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      {% endmacro %}
+      {{ render(tree) }}
+    </ul>
+    {% if not tree %}<div class="empty"><p>Workspace kosong.</p></div>{% endif %}
+  </section>
+
+  <section class="panel ws-preview-panel">
+    <h2>Preview</h2>
+    <div id="preview" class="preview empty">
+      <p>Pilih file di sebelah kiri untuk melihat isinya.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+window.WS_ROOT = {{ root | tojson }};
+</script>
+{% endblock %}

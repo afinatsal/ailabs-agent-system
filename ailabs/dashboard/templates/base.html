@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}AI Labs{% endblock %} · Control Room</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="/">
+      <span class="brand-mark"></span>
+      <span class="brand-text">AI LABS<br><small>control room</small></span>
+    </a>
+    <nav class="nav">
+      <a class="nav-item {{ 'is-active' if nav == 'overview' }}" href="/">Overview</a>
+      <a class="nav-item {{ 'is-active' if nav == 'agents' }}" href="/agents">Agents</a>
+      <a class="nav-item {{ 'is-active' if nav == 'skills' }}" href="/skills">Skills</a>
+      <a class="nav-item {{ 'is-active' if nav == 'workspace' }}" href="/workspace">Workspace</a>
+      <a class="nav-item {{ 'is-active' if nav == 'settings' }}" href="/settings">Settings</a>
+      <a class="nav-item {{ 'is-active' if nav == 'logs' }}" href="/logs">Logs</a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="pill {{ 'pill-lime' if provider in ('mock',) else 'pill-cyan' }}">llm · {{ provider }}</div>
+      <div class="pill {{ 'pill-cyan' if storage_backend.is_supabase else 'pill-amber' }}">
+        {{ 'supabase' if storage_backend.is_supabase else 'local json' }}
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<div id="toast" class="toast" hidden></div>
+<script src="/static/app.js" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

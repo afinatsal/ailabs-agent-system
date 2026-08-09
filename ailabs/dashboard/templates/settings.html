@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Settings</h1>
+    <p class="muted">Konfigurasi runtime, status health, dan area berisiko.</p>
+  </div>
+</header>
+
+<div class="split">
+  <section class="panel">
+    <h2>LLM Provider</h2>
+    <dl class="kv">
+      <div><dt>Provider aktif</dt><dd class="mono">{{ settings.provider }}</dd></div>
+      <div><dt>Model default</dt><dd class="mono">{{ settings.default_model }}</dd></div>
+      <div><dt>Gemini API key</dt><dd>{{ 'terisi' if settings.gemini_key_set else 'kosong' }}</dd></div>
+      <div><dt>DeepSeek API key</dt><dd>{{ 'terisi' if settings.deepseek_key_set else 'kosong' }}</dd></div>
+    </dl>
+    <button class="btn" id="btn-llm-test">Test koneksi</button>
+    <span id="llm-test-result" class="muted" style="margin-left:.5rem"></span>
+  </section>
+
+  <section class="panel">
+    <h2>Storage</h2>
+    <dl class="kv">
+      <div><dt>Backend aktif</dt><dd>{{ 'Supabase' if storage.is_supabase else 'JSON lokal' }}</dd></div>
+      {% if storage.local_path %}<div><dt>Lokasi file</dt><dd class="mono">{{ storage.local_path }}</dd></div>{% endif %}
+      <div><dt>Supabase URL</dt><dd class="mono">{{ settings.supabase_url }}</dd></div>
+      <div><dt>Schema</dt><dd class="mono">{{ settings.schema }}</dd></div>
+      <div><dt>Jumlah data</dt><dd class="mono">{{ counts.jobs }} job · {{ counts.tasks }} task · {{ counts.documents }} dokumen</dd></div>
+    </dl>
+    <button class="btn" id="btn-migrate" {{ 'disabled' if storage.is_supabase }}>Migrate ke Supabase</button>
+    <span id="migrate-result" class="muted" style="margin-left:.5rem"></span>
+  </section>
+</div>
+
+<section class="panel">
+  <h2>Environment health check</h2>
+  <ul class="health-list">
+    {% for c in health %}
+    <li>
+      <span class="dot dot-{{ 'ok' if c.ok else 'bad' }}"></span>
+      <span>{{ c.label }}</span>
+      {% if c.note %}<code class="mono">{{ c.note }}</code>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="panel panel-danger">
+  <h2>Danger zone</h2>
+  <p class="muted">Aksi permanen tanpa konfirmasi ulang dari server — pastikan kamu yakin.</p>
+  <div class="actions">
+    <button class="btn btn-danger" id="btn-clear-failed">Hapus semua job failed</button>
+    <button class="btn btn-danger" id="btn-clear-all">Reset semua data</button>
+  </div>
+</section>
+{% endblock %}

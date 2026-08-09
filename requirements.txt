@@ -1,0 +1,18 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+pydantic>=2
+pydantic-settings
+supabase
+google-genai
+python-dotenv
+httpx
+PyYAML
+beautifulsoup4
+
+# Opsional: aktifkan embedding semantik (pgvector)
+# sentence-transformers
+
+# Dev / testing
+pytest

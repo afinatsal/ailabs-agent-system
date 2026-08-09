@@ -1,0 +1,23 @@
+# Env & secrets
+.env
+*.pem
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store
+
+# AI Labs — hasil kerja agent (file per project)
+workspace/
+
+# Storage lokal (saat tanpa Supabase)
+data/

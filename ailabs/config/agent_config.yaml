@@ -1,0 +1,28 @@
+company:
+  name: "AI Labs"
+  ceo_name: "Mark"
+
+# Override per agent. Semua agent terdaftar otomatis lewat registry
+# (auto-discovery dari folder agents/), file ini hanya untuk override
+# model dan toggle aktif/tidak.
+agents:
+  mark:
+    role: "CEO & Orchestrator"
+    model: null          # null = ikut default_model di settings
+    enabled: true
+  rita:
+    role: "Research Agent"
+    model: null
+    enabled: true
+  dev:
+    role: "Code Agent"
+    model: null
+    enabled: true
+  wren:
+    role: "Writer Agent"
+    model: null
+    enabled: true
+  vera:
+    role: "Reviewer / QA Agent"
+    model: null
+    enabled: true

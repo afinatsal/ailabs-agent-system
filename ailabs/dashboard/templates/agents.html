@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Agents{% endblock %}
+
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Agent roster</h1>
+    <p class="muted">Anggota tim AI Labs. Toggle aktif/nonaktif mengubah <code>agent_config.yaml</code> dan berlaku saat proses berikutnya.</p>
+  </div>
+</header>
+
+<div class="agent-grid">
+  {% for a in agents %}
+  <article class="panel agent-card" data-agent="{{ a.name }}">
+    <div class="agent-head">
+      <div class="agent-avatar">{{ a.name[:1].upper() }}</div>
+      <div>
+        <h2>{{ a.name }} <span class="chip chip-{{ 'running' if a.enabled else 'pending' }}">{{ 'aktif' if a.enabled else 'nonaktif' }}</span></h2>
+        <p class="muted">{{ a.role }}</p>
+      </div>
+    </div>
+    <p class="agent-desc">{{ a.description or '—' }}</p>
+    <dl class="kv">
+      <div><dt>Model</dt><dd class="mono">{{ a.model or 'default' }}</dd></div>
+      <div><dt>Task dikerjakan</dt><dd class="mono">{{ a.task_count }}</dd></div>
+      <div><dt>Success rate</dt><dd class="mono">{{ '%.0f%%' % a.success_rate if a.success_rate is not none else '—' }}</dd></div>
+      <div><dt>Rata-rata waktu</dt><dd class="mono">{{ '%.1f dtk' % a.avg_seconds if a.avg_seconds is not none else '—' }}</dd></div>
+      <div><dt>Revisi review</dt><dd class="mono">{{ a.reviews }}</dd></div>
+      <div><dt>Gagal</dt><dd class="mono {{ 'text-fail' if a.failed else '' }}">{{ a.failed }}</dd></div>
+    </dl>
+    <div class="actions">
+      <button class="btn" data-prompt-btn="{{ a.name }}">System prompt</button>
+      <button class="btn" data-toggle="{{ a.name }}">{{ 'Nonaktifkan' if a.enabled else 'Aktifkan' }}</button>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+
+<dialog id="prompt-dialog" class="dialog">
+  <header class="dialog-head"><h2>System prompt</h2><button class="btn btn-ghost" data-close>✕</button></header>
+  <pre id="prompt-body" class="prompt-body"></pre>
+</dialog>
+{% endblock %}

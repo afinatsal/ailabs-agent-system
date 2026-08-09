@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Skills{% endblock %}
+
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Skills registry</h1>
+    <p class="muted">Kemampuan reusable yang dipakai agent. Log pemanggilan tercatat dalam sesi process dashboard ini.</p>
+  </div>
+</header>
+
+{% for s in skills %}
+<section class="panel skill">
+  <div class="skill-head">
+    <div>
+      <h2><code>{{ s.name }}</code></h2>
+      <p class="muted">{{ s.description }}</p>
+    </div>
+    <div class="skill-tags">
+      {% if s.needs_llm %}<span class="chip chip-running">llm</span>{% endif %}
+      {% for t in s.tags %}<span class="chip chip-pending">{{ t }}</span>{% endfor %}
+    </div>
+  </div>
+  <div class="split">
+    <div>
+      <h3>Dipakai agent</h3>
+      {% if s.users %}
+      <ul class="taglist">
+        {% for u in s.users %}<li><a href="/agents#{{ u }}"><code>{{ u }}</code></a></li>{% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Tidak terdeteksi di system prompt agent manapun.</p>
+      {% endif %}
+    </div>
+    <div>
+      <h3>Panggilan terakhir</h3>
+      {% if s.log %}
+      <ol class="feed">
+        {% for e in s.log %}
+        <li>
+          <span class="mono feed-time">{{ e.time[11:19] }}</span>
+          <span class="chip chip-{{ 'done' if e.ok else 'failed' }}">{{ 'ok' if e.ok else 'gagal' }}</span>
+          <span class="feed-msg">{{ e.error or '' }}</span>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="muted">Belum ada panggilan.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% else %}
+<div class="panel empty"><p>Belum ada skill terdaftar.</p></div>
+{% endfor %}
+{% endblock %}

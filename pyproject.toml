@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ailabs"
+version = "0.1.0"
+description = "AI Labs — perusahaan multi-agent. Beri misi ke Mark (CEO), dia atur timnya."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "jinja2",
+    "python-multipart",
+    "pydantic>=2",
+    "pydantic-settings",
+    "supabase",
+    "google-genai",
+    "python-dotenv",
+    "httpx",
+    "PyYAML",
+    "beautifulsoup4",
+]
+
+[project.optional-dependencies]
+embedding = ["sentence-transformers>=2.2"]
+dev = ["pytest"]
+
+[project.scripts]
+ailabs = "ailabs.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["ailabs*"]
+
+[tool.setuptools.package-data]
+ailabs = ["dashboard/templates/*.html", "dashboard/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

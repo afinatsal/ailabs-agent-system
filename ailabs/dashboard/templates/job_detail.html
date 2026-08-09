@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Job {{ job_id[:12] }}{% endblock %}
+
+{% macro fmtdt(d) -%}
+{%- if d -%}
+{%- set MONTHS = ['', 'Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'] -%}
+{{ d[8:10] }} {{ MONTHS[d[5:7] | int] }} {{ d[11:16] }}
+{%- else -%}—{%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+<script type="application/json" id="job-data">{{ job_json | safe }}</script>
+
+<header class="page-head">
+  <div>
+    <h1>Job <span class="mono">{{ job_id[:12] }}</span></h1>
+    <p class="muted">{{ job.user_prompt }}</p>
+    <div class="meta-line">
+      <span class="chip chip-{{ job.status }}{{ ' is-live' if running }}" id="job-status-chip">{{ job.status_label }}</span>
+      <span class="meta">project: <b>{{ job.project or '—' }}</b></span>
+      <span class="meta" title="{{ job.created_at }}">dibuat {{ fmtdt(job.created_at) }} oleh {{ job.created_by or '—' }}</span>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="btn-run" {{ 'disabled' if running or job.is_finished }}>Run</button>
+    <button class="btn" id="btn-cancel" {{ 'disabled' if not running }}>Cancel</button>
+    <button class="btn js-export-report" {{ 'disabled' if not report }}>Export .md</button>
+    <button class="btn" onclick="window.print()">PDF</button>
+    <span class="actions-sep"></span>
+    <button class="btn btn-danger" id="btn-delete">Hapus</button>
+  </div>
+</header>
+
+<div class="panel">
+  <h2>Task graph</h2>
+  <div id="task-graph" class="task-graph" aria-label="Visualisasi dependency antar task">
+    <div class="empty">Memuat grafik…</div>
+  </div>
+</div>
+
+<div class="split">
+  <section class="panel">
+    <h2>Task list</h2>
+    <div id="tasks-table" class="table-scroll table-scroll-y"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Event log</h2>
+    <div id="events" class="events">
+      <div class="empty">Belum ada event.</div>
+    </div>
+  </section>
+</div>
+
+{% if plan %}
+<section class="panel">
+  <h2>Plan naratif — <span class="muted">{{ plan.title }}</span></h2>
+  <div class="doc-body">{{ plan.content | md | safe }}</div>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Laporan akhir</h2>
+  <div id="report-body" class="doc-body">
+    {% if report %}
+    {{ report.content | md | safe }}
+    {% else %}
+    <div class="empty"><p>Belum ada laporan — job belum selesai.</p></div>
+    {% endif %}
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.JOB_ID = {{ job_id | tojson }};
+</script>
+{% endblock %}

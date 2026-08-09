@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+
+{% macro fmtdt(d) -%}
+{%- if d -%}
+{%- set MONTHS = ['', 'Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'] -%}
+{{ d[8:10] }} {{ MONTHS[d[5:7] | int] }} {{ d[11:16] }}
+{%- else -%}—{%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Overview</h1>
+    <p class="muted">Ringkasan seluruh operasi AI Labs — semua misi yang masuk, status, dan aktivitas.</p>
+  </div>
+  <button class="btn btn-primary" data-open="submit-dialog">Kirim misi baru</button>
+</header>
+
+{% if stats.failed_tasks %}
+<section class="alert-banner">
+  <span class="dot dot-bad"></span>
+  <span><b>{{ stats.failed_tasks }}</b> task gagal perlu perhatian.</span>
+  <a href="/logs">Lihat di Logs →</a>
+</section>
+{% endif %}
+
+<section class="stats-grid">
+  <div class="stat"><span class="stat-label">Job total</span><span class="stat-num">{{ stats.total_jobs }}</span></div>
+  <div class="stat"><span class="stat-label">Hari ini</span><span class="stat-num">{{ stats.jobs_today }}</span></div>
+  <div class="stat"><span class="stat-label">7 hari terakhir</span><span class="stat-num">{{ stats.jobs_week }}</span></div>
+  <div class="stat">
+    <span class="stat-label">Rata-rata penyelesaian</span>
+    <span class="stat-num">{{ '%.1f dtk' % stats.avg_seconds if stats.avg_seconds else '—' }}</span>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Status job</h2>
+  {% set total = stats.status_counts.values() | sum %}
+  <div class="status-track">
+    {% for status, label in status_labels.items() %}
+    {% set n = stats.status_counts.get(status, 0) %}
+    {% if n %}
+    <div class="status-seg status-seg-{{ status }}" style="flex-grow:{{ n }}" title="{{ label }}: {{ n }}"></div>
+    {% endif %}
+    {% endfor %}
+    {% if not total %}<div class="status-seg status-seg-empty" style="flex-grow:1"></div>{% endif %}
+  </div>
+  <div class="status-legend">
+    {% for status, label in status_labels.items() %}
+    <div class="status-legend-item">
+      <span class="chip chip-{{ status }}">{{ label }}</span>
+      <span class="status-count">{{ stats.status_counts.get(status, 0) }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="split">
+  <section class="panel">
+    <h2>Job terbaru</h2>
+    {% if jobs %}
+    <div class="table-scroll">
+    <table class="table table-jobs">
+      <colgroup>
+        <col style="width:110px"><col style="width:110px"><col style="width:90px">
+        <col style="width:80px"><col style="width:120px"><col>
+      </colgroup>
+      <thead><tr><th>ID</th><th>Project</th><th>Status</th><th>Task</th><th>Dibuat</th><th>Prompt</th></tr></thead>
+      <tbody>
+        {% for row in jobs %}
+        <tr class="{{ 'is-running' if row.running }}">
+          <td class="mono nowrap" title="{{ row.job.id }}"><a href="/jobs/{{ row.job.id }}">{{ row.job.id[:12] }}</a></td>
+          <td class="ellipsis" title="{{ row.job.project or '' }}">{{ row.job.project or '—' }}</td>
+          <td>
+            <span class="chip chip-{{ row.job.status }}{{ ' is-live' if row.running }}">
+              {{ 'running' if row.running else row.job.status_label }}
+            </span>
+          </td>
+          <td class="mono nowrap">
+            {{ row.tasks_done }}/{{ row.tasks_total }}
+            {% if row.tasks_failed %}<span class="text-fail"> · {{ row.tasks_failed }}</span>{% endif %}
+          </td>
+          <td class="mono nowrap" title="{{ row.job.created_at }}">{{ fmtdt(row.job.created_at) }}</td>
+          <td class="prompt-cell" title="{{ row.job.user_prompt }}">{{ row.job.user_prompt }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty"><p>Belum ada job.</p><p class="muted">Kirim misi pertama lewat form di bawah.</p></div>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Aktivitas terbaru</h2>
+    {% if activity %}
+    <ol class="feed feed-scroll">
+      {% for e in activity %}
+      <li>
+        <span class="mono feed-time">{{ e.time[11:19] }}</span>
+        <a class="feed-job" href="/jobs/{{ e.job_id }}">{{ e.job_id[:8] }}</a>
+        <span class="feed-msg">{{ e.msg }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <div class="empty"><p>Belum ada aktivitas.</p></div>
+    {% endif %}
+  </section>
+</div>
+
+<dialog id="submit-dialog" class="dialog dialog-wide">
+  <header class="dialog-head"><h2>Kirim misi baru</h2><button class="btn btn-ghost" data-close>✕</button></header>
+  <form method="post" action="/submit" class="form" style="padding:1.1rem">
+    <label for="prompt">Prompt / misi
+      <textarea id="prompt" name="prompt" rows="3" required placeholder="Contoh: Riset tren AI 2026 dan tulis ringkasannya" autofocus></textarea>
+    </label>
+    <div class="form-row">
+      <label for="project">Project <small>(opsional — nama folder di workspace)</small>
+        <input id="project" name="project" placeholder="mis. Project A">
+      </label>
+      <label for="created_by">Dikirim oleh <small>(opsional)</small>
+        <input id="created_by" name="created_by" placeholder="mis. budi">
+      </label>
+    </div>
+    <div class="actions" style="margin-top:0.4rem; justify-content:flex-end">
+      <button class="btn btn-ghost" type="button" data-close>Batal</button>
+      <button class="btn btn-primary" type="submit">Jalankan</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
