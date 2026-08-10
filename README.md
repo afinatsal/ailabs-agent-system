@@ -196,8 +196,9 @@ ailabs ask "Buat API python"   --project "Project B"
 
 Cara kerja: saat agent diminta membuat file, dia mengeluarkan blok
 ```` ```file:path/relatif/nama.ext `` ``, lalu sistem menuliskannya ke
-`workspace/<project>/`. Skill terkait: `write_file`, `read_file`, `list_files`
-(path dipaksa tetap di dalam workspace — path traversal ditolak).
+`workspace/<project>/`. Skill terkait: `write_file`, `read_file`, `list_files`,
+`glob_files`, `grep_files`, `edit_file`, `code_exec` (path dipaksa tetap di
+dalam workspace — path traversal ditolak).
 
 ## Ganti LLM Provider
 
