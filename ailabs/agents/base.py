@@ -179,3 +179,34 @@ class BaseAgent:
             "tiga backtick penutup. Jangan menulis contoh placeholder."
         )
         return "\n\n".join(parts)
+
+    def try_agentic_loop(
+        self, task: Task, context: str = "", user: str | None = None
+    ) -> AgentResult | None:
+        """Jalankan task lewat skill `agentic_loop` (loop otonom) bila tersedia.
+
+        Worker agent bisa memanggil ini di awal `execute()`. Mengembalikan
+        `None` kalau skill tidak ada / gagal di langkah awal, sehingga agent
+        tetap bisa memakai jalur eksekusi lamanya (fallback).
+        """
+        skill = self.skills.get("agentic_loop") if self.skills else None
+        if skill is None:
+            return None
+        goals = list(task.goals or [])
+        if isinstance(task.input, dict):
+            goals = list(task.input.get("goals", [])) + goals
+        if user is None:
+            user = self._build_prompt(task, context)
+        try:
+            loop = skill.run(task=user, goals=goals)
+        except Exception:  # noqa: BLE001
+            return None
+        if not (isinstance(loop, SkillResult) and loop.ok):
+            return None
+        value = loop.value if isinstance(loop.value, dict) else {}
+        loop_tools = list(value.get("tools_used", []))
+        return self._to_result(
+            str(value.get("summary", "")),
+            extra_tools=["agentic_loop", *loop_tools],
+            extra_output={"agentic_loop_result": value},
+        )

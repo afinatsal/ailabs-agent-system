@@ -13,6 +13,10 @@ class ResearchAgent(BaseAgent):
     description = "Riset: mencari informasi, menganalisis, dan merangkum temuan."
 
     def execute(self, task, context: str = "") -> AgentResult:
+        loop_result = self.try_agentic_loop(task, context)
+        if loop_result is not None:
+            return loop_result
+
         tools_used: list[str] = []
         search_result = ""
         search_skill = self.skills.get("web_search")

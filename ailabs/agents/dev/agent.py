@@ -38,7 +38,6 @@ class CodeAgent(BaseAgent):
         tools_used: list[str] = []
         run_result = ""
         exec_skill = self.skills.get("code_exec")
-        agentic_skill = self.skills.get("agentic_loop") if self.skills else None
         opencode_skill = self.skills.get("opencode_code") if self.skills else None
 
         user = self._build_prompt(task, context)
@@ -54,25 +53,9 @@ class CodeAgent(BaseAgent):
                     user += f"\n\n(taste_design gagal dimuat: {exc})"
 
         # Path A: loop otonom — Dev memutuskan tool sendiri memakai LLM.
-        if agentic_skill is not None:
-            try:
-                goals = list(task.goals or [])
-                if isinstance(task.input, dict):
-                    goals = list(task.input.get("goals", [])) + goals
-                loop = agentic_skill.run(task=user, goals=goals)
-                if isinstance(loop, SkillResult) and loop.ok:
-                    value = loop.value if isinstance(loop.value, dict) else {}
-                    loop_tools = list(value.get("tools_used", []))
-                    tools_used.append("agentic_loop")
-                    tools_used.extend(loop_tools)
-                    return self._to_result(
-                        str(value.get("summary", "")),
-                        extra_tools=tools_used,
-                        extra_output={"agentic_loop_result": value},
-                    )
-                run_result = {"agentic_loop_error": getattr(loop, "error", "agentic_loop gagal")}
-            except Exception as exc:  # noqa: BLE001
-                run_result = {"agentic_loop_error": str(exc)}
+        loop_result = self.try_agentic_loop(task, context, user=user)
+        if loop_result is not None:
+            return loop_result
 
         # Path B: delegasikan task koding ke agent opencode (menulis file sendiri).
         if opencode_skill is not None:

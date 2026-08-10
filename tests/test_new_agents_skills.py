@@ -327,3 +327,31 @@ def test_dev_uses_agentic_loop_when_decisions_ok(tmp_path):
     assert "agentic_loop" in result.tools_used
     assert "write_file" in result.tools_used
     assert (tmp_path / "kode.py").read_text() == "print(1)"
+
+
+def test_all_agents_use_agentic_loop_when_available(tmp_path):
+    """Setiap worker agent memakai agentic_loop (Path otonom) bila keputusan JSON."""
+    from ailabs.agents.registry import AgentRegistry
+    from ailabs.config.settings import Settings
+
+    llm = _DecisionLLM(
+        [
+            {"tool": "write_file", "args": {"path": "hasil.md", "content": "ok"}},
+            {"done": True, "summary": "Selesai."},
+        ]
+    )
+    skills = SkillRegistry(
+        context={"workspace_path": str(tmp_path), "llm": llm, "skills": None}
+    )
+    skills.inject_context(skills=skills)
+
+    settings = Settings(llm_provider="mock", default_model="mock-model")
+    registry = AgentRegistry(llm=llm, skills=skills, settings=settings)
+    for name in ("dev", "rita", "rio", "wren", "dara", "qa"):
+        agent = registry.get(name)
+        result = agent.execute(
+            _task(agent_name=name, description=f"Task untuk {name}")
+        )
+        assert result.success, f"{name} harus sukses"
+        assert "agentic_loop" in result.tools_used, f"{name} harus memakai agentic_loop"
+        assert (tmp_path / "hasil.md").read_text() == "ok"

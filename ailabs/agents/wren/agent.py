@@ -13,6 +13,10 @@ class WriterAgent(BaseAgent):
     description = "Menulis dokumen, laporan, dan konten yang rapi & mudah dibaca."
 
     def execute(self, task, context: str = "") -> AgentResult:
+        loop_result = self.try_agentic_loop(task, context)
+        if loop_result is not None:
+            return loop_result
+
         user = self._build_prompt(task, context)
         try:
             text = self.llm.generate(self.system_prompt(), user)

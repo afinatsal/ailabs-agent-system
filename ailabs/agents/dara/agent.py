@@ -29,6 +29,10 @@ class DesignAgent(BaseAgent):
             except Exception as exc:  # noqa: BLE001
                 user += f"\n\n(taste_design gagal dimuat: {exc})"
 
+        loop_result = self.try_agentic_loop(task, context)
+        if loop_result is not None:
+            return loop_result
+
         try:
             text = self.llm.generate(self.system_prompt(), user)
         except LLMError as exc:

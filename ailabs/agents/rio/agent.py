@@ -13,6 +13,10 @@ class DataAnalystAgent(BaseAgent):
     description = "Menganalisis data (CSV/JSON), menghitung statistik, dan menulis laporan data."
 
     def execute(self, task, context: str = "") -> AgentResult:
+        loop_result = self.try_agentic_loop(task, context)
+        if loop_result is not None:
+            return loop_result
+
         tools_used: list[str] = []
         run_result = ""
         exec_skill = self.skills.get("code_exec") if self.skills else None

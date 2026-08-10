@@ -25,9 +25,10 @@ Semua agent juga bisa **menyimpan hasil sebagai file lokal** lewat skill `write_
 Skill ini membuat agent bertindak seperti agent CLI: LLM memutuskan tool
 berikutnya (`read_file`, `grep_files`, `edit_file`, `code_exec`, dll), sistem
 menjalankannya, hasil dikembalikan ke LLM sebagai konteks, dan berulang sampai
-goals task tercapai. Dev memakainya sebagai jalur utama (Path A) — ia bisa
-membaca/mencari/mengedit/menguji file sendiri tanpa perlu opencode. Batas
-iterasi diatur lewat `AGENTIC_MAX_ITERATIONS` di `.env` (default 8).
+goals task tercapai. **Semua worker agent** (dev, rita, rio, wren, dara, qa)
+otomatis memakai jalur ini di awal `execute()` — bila skill tersedia, task
+dikerjakan otonom; bila tidak/gagal, agent jatuh ke jalur lamanya (fallback).
+Batas iterasi diatur lewat `AGENTIC_MAX_ITERATIONS` di `.env` (default 8).
 
 ### Delegasi koding ke opencode
 
