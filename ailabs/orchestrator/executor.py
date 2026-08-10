@@ -147,6 +147,82 @@ class Executor:
                 )
         return "\n\n".join(parts)
 
+    def _project_snapshot(self, job: Job, max_chars: int = 2500) -> str:
+        """Daftar isi workspace project sebagai konteks untuk agent.
+
+        Ini kunci "agent seperti opencode": sebelum bekerja, agent TAHU file
+        apa saja yang sudah ada (path + ukuran + cuplikan kecil), sehingga
+        tidak menebak/duplikat dan bisa memutuskan file mana yang harus dibaca
+        lewat read_file.
+        """
+        if self.workspace_base is None:
+            return ""
+        base = self.workspace_base / self._slug_for(job)
+        if not base.exists():
+            return "(workspace project masih kosong — belum ada file)"
+        ignore = {
+            "node_modules", ".git", "__pycache__", ".venv", "venv",
+            ".next", "dist", "build", "vendor",
+        }
+        lines: list[str] = []
+        for p in sorted(base.rglob("*")):
+            if not p.is_file():
+                continue
+            if any(part in ignore for part in p.relative_to(base).parts):
+                continue
+            rel = p.relative_to(base)
+            size = p.stat().st_size
+            lines.append(f"- {rel} ({size} B)")
+        if not lines:
+            return "(workspace project kosong — belum ada file)"
+        return "DAFTAR FILE DI WORKSPACE (untuk tahu apa yang sudah ada — baca file relevan dengan read_file, JANGAN menebak atau menulis ulang dari nol):\n" + "\n".join(lines)[:max_chars]
+
+    def _project_status_path(self, job: Job) -> Path | None:
+        if self.workspace_base is None:
+            return None
+        return self.workspace_base / self._slug_for(job) / "docs" / "PROJECT_STATUS.md"
+
+    def _load_project_status(self, job: Job) -> str:
+        """Baca PROJECT_STATUS.md — komunikasi antar agent.
+
+        Setiap worker selesai mencatat file yang dibuat/diperbaiki + status,
+        sehingga worker berikutnya tahu kondisi nyata project tanpa perlu
+        menebak atau mengulang dari nol.
+        """
+        path = self._project_status_path(job)
+        if path is None or not path.exists():
+            return ""
+        try:
+            content = path.read_text(encoding="utf-8")[:4000]
+        except OSError as exc:  # noqa: BLE001
+            logger.warning("Gagal membaca PROJECT_STATUS.md: %s", exc)
+            return ""
+        return "STATUS PROYEK (dibuat agent sebelumnya — baca dulu, lalu lanjutkan):\n" + content
+
+    def _update_project_status(self, job: Job, task: Task, result: AgentResult) -> None:
+        """Catat hasil task ke PROJECT_STATUS.md agar agent berikutnya tahu."""
+        path = self._project_status_path(job)
+        if path is None:
+            return
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            files = (result.output or {}).get("files_written") or []
+            stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            lines = [
+                f"\n## {stamp} — {task.agent_name}",
+                f"- Task: {task.description}",
+                "- Status: selesai",
+            ]
+            if files:
+                lines.append("- File: " + ", ".join(str(f).split("/")[-1] for f in files))
+            text = (result.text or "")[:300].strip().replace("\n", " ")
+            if text:
+                lines.append(f"- Ringkasan: {text}")
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write("\n".join(lines) + "\n")
+        except OSError as exc:  # noqa: BLE001
+            logger.warning("Gagal menulis PROJECT_STATUS.md: %s", exc)
+
     def _append_lesson(self, job: Job, task: Task, feedback: str) -> None:
         path = self._learnings_path(job)
         if path is None:
@@ -234,6 +310,12 @@ class Executor:
             styleguide = self._load_project_styleguide(job, task)
             if styleguide:
                 context = f"{context}\n\n{styleguide}" if context else styleguide
+            snapshot = self._project_snapshot(job)
+            if snapshot:
+                context = f"{context}\n\n{snapshot}" if context else snapshot
+            status = self._load_project_status(job)
+            if status:
+                context = f"{context}\n\n{status}" if context else status
         result = agent.execute(task, context=context)
 
         if not result.success:
@@ -282,6 +364,9 @@ class Executor:
         )
         report.tasks_done += 1
         self._emit(f"[{task.agent_name}] selesai ✓", job_id)
+        job = self.storage.get_job(job_id)
+        if job is not None:
+            self._update_project_status(job, task, result)
 
     def _review(self, task: Task, result: AgentResult, evidence: str = ""):
         reviewer = self.registry.get("vera")

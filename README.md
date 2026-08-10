@@ -38,6 +38,23 @@ review Vera (`_collect_evidence`). Reviewer tidak lagi menilai dari narasi teks
 saja — ia bisa memverifikasi kode yang benar-benar ada. File yang sama juga
 didaftarkan (tanpa duplikat, path dipaksa di dalam workspace project).
 
+### Agent melihat file seperti agent CLI (anti boros & anti duplikat)
+
+Sebelum setiap task dieksekusi, executor menyuntikkan **daftar isi workspace**
+(`_project_snapshot`) ke konteks agent — path + ukuran setiap file (kecuali
+`node_modules`, `.git`, dll). Agent kini TAHU file apa yang sudah ada, tidak
+menebak/duplikat, dan bisa memutuskan file mana yang harus dibaca lewat
+`read_file`. Ini mensimulasikan kemampuan "melihat file" seperti agent CLI
+(opencode) di dalam sistem multi-agent.
+
+### Komunikasi antar agent via PROJECT_STATUS.md
+
+Setiap agent selesai, executor menulis `docs/PROJECT_STATUS.md` di workspace
+project (agent mana, task apa, file apa yang dibuat, ringkasan). Task berikutnya
+membaca status ini dari konteksnya, jadi worker berikutnya melanjutkan kondisi
+nyata project — bukan bekerja dalam kegelapan atau mengulang dari nol. Ini
+menghindari revisi berulang yang menghabiskan token.
+
 ### Delegasi koding ke opencode
 
 Dev bisa mendelegasikan task koding ke **opencode** (CLI agent) yang menulis/mengedit

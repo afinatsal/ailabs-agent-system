@@ -326,3 +326,68 @@ def test_agentic_loop_reports_files_written(tmp_path):
     assert res.value["files_written"] == [expected]
     assert (Path(tmp_path / "halo.txt")).exists()
 
+
+# ---------- fix efisiensi: snapshot struktur & PROJECT_STATUS ----------
+
+
+def test_project_snapshot_lists_workspace_files(orchestrator, tmp_path):
+    slug = "proyek-snap"
+    ws = orchestrator.workspace_path / slug
+    (ws / "backend").mkdir(parents=True, exist_ok=True)
+    (ws / "backend" / "server.js").write_text("console.log('ok')", encoding="utf-8")
+    (ws / "frontend").mkdir(parents=True, exist_ok=True)
+    (ws / "frontend" / "index.html").write_text("<h1>x</h1>", encoding="utf-8")
+    (ws / "node_modules").mkdir(parents=True, exist_ok=True)
+    (ws / "node_modules" / "ignored.js").write_text("x", encoding="utf-8")
+    job = orchestrator.submit("Buat web.", project=slug)
+    snap = orchestrator.executor._project_snapshot(job)
+    assert "DAFTAR FILE DI WORKSPACE" in snap
+    assert "backend/server.js" in snap
+    assert "frontend/index.html" in snap
+    assert "node_modules" not in snap
+
+
+def test_project_snapshot_empty_workspace(orchestrator):
+    job = orchestrator.submit("Proyek kosong.", project="proyek-anyar")
+    snap = orchestrator.executor._project_snapshot(job)
+    assert "masih kosong" in snap
+
+
+def test_project_status_write_and_load(orchestrator):
+    job = orchestrator.submit("Proyek status.", project="proyek-status")
+    result = AgentResult(
+        success=True,
+        text="Backend selesai.",
+        output={"files_written": ["/x/backend/server.js", "/x/frontend/index.html"]},
+    )
+    orchestrator.executor._update_project_status(
+        job, _task(id="t1", job_id=job.id, agent_name="dev"), result
+    )
+    status = orchestrator.executor._load_project_status(job)
+    assert "STATUS PROYEK" in status
+    assert "dev" in status
+    assert "server.js" in status
+    assert "index.html" in status
+
+
+def test_context_includes_snapshot_in_run(orchestrator):
+    from ailabs.agents.dev.agent import CodeAgent
+
+    slug = "proyek-run"
+    ws = orchestrator.workspace_path / slug
+    (ws / "app.js").parent.mkdir(parents=True, exist_ok=True)
+    (ws / "app.js").write_text("console.log(1)", encoding="utf-8")
+    job = orchestrator.submit("Perbaiki kode.", project=slug)
+    captured = {}
+
+    class SpyAgent(CodeAgent):
+        def execute(self, task, context=""):
+            captured["context"] = context
+            return AgentResult(success=True, text="sip", output={"text": "sip"})
+
+    orchestrator.registry._agents["dev"] = SpyAgent(llm=orchestrator.llm)
+    orchestrator.run(job.id)
+    assert "DAFTAR FILE DI WORKSPACE" in captured.get("context", "")
+    assert "app.js" in captured.get("context", "")
+
+

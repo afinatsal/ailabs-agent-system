@@ -178,6 +178,13 @@ class BaseAgent:
             "dan path relatif ke folder workspace, pindah baris, isi file, lalu "
             "tiga backtick penutup. Jangan menulis contoh placeholder."
         )
+        parts.append(
+            "\nPENTING: Kalau konteks berisi 'DAFTAR FILE DI WORKSPACE', "
+            "baca file yang relevan dengan skill read_file SEBELUM menulis "
+            "atau mengedit — jangan menebak isi file yang sudah ada dan "
+            "jangan membuat duplikat. Kalau konteks berisi 'STATUS PROYEK', "
+            "lanjutkan dari status itu."
+        )
         return "\n\n".join(parts)
 
     def try_agentic_loop(
@@ -197,16 +204,33 @@ class BaseAgent:
             goals = list(task.input.get("goals", [])) + goals
         if user is None:
             user = self._build_prompt(task, context)
-        try:
-            loop = skill.run(task=user, goals=goals)
-        except Exception:  # noqa: BLE001
-            return None
-        if not (isinstance(loop, SkillResult) and loop.ok):
-            return None
-        value = loop.value if isinstance(loop.value, dict) else {}
-        loop_tools = list(value.get("tools_used", []))
-        return self._to_result(
-            str(value.get("summary", "")),
-            extra_tools=["agentic_loop", *loop_tools],
-            extra_output={"agentic_loop_result": value},
-        )
+        last: SkillResult | None = None
+        for attempt in range(2):  # retry sekali kalau loop gagal di langkah awal
+            try:
+                loop = skill.run(task=user, goals=goals)
+            except Exception:  # noqa: BLE001
+                loop = None
+            if isinstance(loop, SkillResult) and loop.ok:
+                value = loop.value if isinstance(loop.value, dict) else {}
+                loop_tools = list(value.get("tools_used", []))
+                return self._to_result(
+                    str(value.get("summary", "")),
+                    extra_tools=["agentic_loop", *loop_tools],
+                    extra_output={"agentic_loop_result": value},
+                )
+            if isinstance(loop, SkillResult):
+                last = loop
+        # loop gagal. Kalau SEMPAT bekerja (ada file/tool ditulis), pertahankan
+        # hasil parsial supaya agent tidak jatuh ke mode buta. Kalau benar-benar
+        # gagal di langkah awal (belum ada aksi), kembalikan None supaya jalur
+        # fallback (yang kini sudah membawa snapshot struktur) yang bertindak.
+        value = last.value if isinstance(last, SkillResult) and isinstance(last.value, dict) else {}
+        tools = list(value.get("tools_used", []))
+        files = list(value.get("files_written", []))
+        if tools or files:
+            error = last.error if isinstance(last, SkillResult) else "loop gagal"
+            output = {"agentic_loop_result": value, "text": error}
+            if files:
+                output["files_written"] = files
+            return AgentResult(success=True, text=error, output=output, tools_used=tools)
+        return None

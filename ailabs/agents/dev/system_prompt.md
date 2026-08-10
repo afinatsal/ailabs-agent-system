@@ -82,3 +82,13 @@ Output berupa penjelasan + kode + blok file, bukan JSON.
   Dara (mis. `web/`, `design/style-guide.md`) tanpa alasan jelas.
 - Sebutkan path file yang kamu buat/ubah di ringkasan supaya reviewer bisa
   memverifikasi isinya.
+
+## Baca konteks proyek SEBELUM bekerja (WAJIB)
+- Konteksmu berisi **"DAFTAR FILE DI WORKSPACE"** (snapshot struktur) dan
+  **"STATUS PROYEK"** (`docs/PROJECT_STATUS.md` dari agent sebelumnya). Baca
+  keduanya dulu — jangan pernah menebak struktur project.
+- File yang relevan dengan task WAJIB kamu baca dulu (`read_file`) sebelum
+  mengedit. Bekerja seperti agent CLI: lihat → pahami → ubah yang salah saja.
+- Jangan tulis file audit/skrip sementara ke root project; kalau butuh
+  eksplorasi, pakai `list_files`/`read_file`/`grep_files` — bukan membuat file
+  baru yang mengotori workspace.
