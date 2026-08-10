@@ -16,7 +16,12 @@ def build_llm(settings: Settings | None = None) -> LLMClient:
     if provider == "gemini":
         from ailabs.llm.gemini import GeminiClient
 
-        return GeminiClient(api_key=settings.gemini_api_key, model=settings.default_model)
+        return GeminiClient(
+            api_key=settings.gemini_api_key,
+            model=settings.default_model,
+            max_retries=settings.llm_max_retries,
+            retry_delay=settings.llm_retry_delay,
+        )
 
     if provider == "deepseek":
         from ailabs.llm.deepseek import DeepSeekClient

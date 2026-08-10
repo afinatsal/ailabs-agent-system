@@ -101,6 +101,52 @@ class Executor:
             return None
         return self.workspace_base / self._slug_for(job) / "_learnings.md"
 
+    def _collect_evidence(self, job: Job, task: Task, result: AgentResult) -> str:
+        """Kumpulkan isi file yang ditulis agent sebagai bukti untuk reviewer.
+
+        Mengatasi masalah "reviewer tidak bisa memverifikasi kode": Vera kini
+        melihat isi file dari workspace, bukan hanya narasi teks agent.
+        """
+        if self.workspace_base is None:
+            return ""
+        ws = self.workspace_base / self._slug_for(job)
+        output = result.output or {}
+
+        written: list[str] = []
+        files_written = output.get("files_written") or []
+        written.extend(files_written)
+        agentic = output.get("agentic_loop_result") or {}
+        if isinstance(agentic, dict):
+            written.extend(agentic.get("files_written") or [])
+        opencode = output.get("opencode_result") or {}
+        if isinstance(opencode, dict):
+            written.extend(opencode.get("files_written") or [])
+
+        parts: list[str] = []
+        seen: set[str] = set()
+        for raw in written:
+            if not raw:
+                continue
+            path = Path(str(raw))
+            if not path.is_absolute():
+                path = ws / path
+            try:
+                path = path.resolve()
+            except OSError:
+                continue
+            if not str(path).startswith(str(ws.resolve())) or path in seen:
+                continue
+            seen.add(path)
+            if path.is_file():
+                try:
+                    content = path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    continue
+                parts.append(
+                    f"### {path.relative_to(ws)}\n```\n{content[:4000]}\n```"
+                )
+        return "\n\n".join(parts)
+
     def _append_lesson(self, job: Job, task: Task, feedback: str) -> None:
         path = self._learnings_path(job)
         if path is None:
@@ -197,7 +243,8 @@ class Executor:
         # ------- review (opsional) -------
         if self.reviewer_enabled:
             self._emit(f"[{task.agent_name}] mengirim ke review", job_id)
-            verdict = self._review(task, result)
+            evidence = self._collect_evidence(job, task, result)
+            verdict = self._review(task, result, evidence)
             if not verdict.approved:
                 report.revisions += 1
                 task.review_count = task.review_count + 1
@@ -236,13 +283,13 @@ class Executor:
         report.tasks_done += 1
         self._emit(f"[{task.agent_name}] selesai ✓", job_id)
 
-    def _review(self, task: Task, result: AgentResult):
+    def _review(self, task: Task, result: AgentResult, evidence: str = ""):
         reviewer = self.registry.get("vera")
         if reviewer is None or not hasattr(reviewer, "review"):
             from ailabs.models.agent_result import ReviewVerdict
 
             return ReviewVerdict(approved=True)
-        return reviewer.review(task, result)
+        return reviewer.review(task, result, evidence=evidence)
 
     def _retry_or_fail(self, task: Task, report: RunReport, result: AgentResult, error: str) -> None:
         task.retry_count += 1

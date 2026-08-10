@@ -12,7 +12,7 @@ class ReviewerAgent(BaseAgent):
     role = "Reviewer / QA Agent"
     description = "Meninjau hasil agent lain; menyetujui atau meminta revisi."
 
-    def review(self, task, agent_result: AgentResult) -> ReviewVerdict:
+    def review(self, task, agent_result: AgentResult, evidence: str = "") -> ReviewVerdict:
         goals = task.input.get("goals") if task.input else None
         goals_text = ""
         if goals:
@@ -23,6 +23,12 @@ class ReviewerAgent(BaseAgent):
             f"INPUT TASK: {task.input}\n\n"
             f"HASIL AGENT:\n{agent_result.text or agent_result.output}\n\n"
         )
+        if evidence:
+            user += (
+                "\nISI FILE DARI WORKSPACE (BUKTI KERJA AGENT — gunakan ini "
+                "untuk memverifikasi klaim, bukan hanya narasi teks):\n"
+                f"{evidence}\n\n"
+            )
         if goals_text:
             user += (
                 "\nGOALS TASK (nilai terhadap goals KHUSUS task ini, SATU-SATU):\n"

@@ -35,6 +35,15 @@ Aturan:
 - Jangan memanggil tool yang tidak ada di daftar. Jika tool error, perbaiki
   argumennya lalu coba lagi, atau pilih tool lain yang lebih cocok.
 - Jangan mengulang tool yang sama dengan hasil error yang sama berulang kali.
+
+PENYIMPANAN FILE (PENTING):
+- Tulis TEPAT SATU file per artefak di lokasi tetap. Jangan membuat duplikat
+  (mis. index.html di beberapa folder sekaligus) dan jangan menimpa hasil kerja
+  agent lain tanpa alasan.
+- Sebelum menulis, cek apakah file sudah ada (`list_files`/`read_file`). Kalau
+  ada, gunakan `edit_file` untuk mengubah, bukan menulis ulang dari nol.
+- Daftarkan file yang kamu buat/ubah di summary (path + isi singkat) supaya
+  reviewer bisa memverifikasi.
 """
 
 
@@ -76,6 +85,7 @@ def agentic_loop(task, goals=None, max_iterations=None, **ctx) -> SkillResult:
 
     transcript: list[str] = []
     tools_used: list[str] = []
+    files_written: list[str] = []
 
     for i in range(1, int(limit) + 1):
         history = "\n".join(transcript) if transcript else "(belum ada aksi)"
@@ -94,6 +104,7 @@ def agentic_loop(task, goals=None, max_iterations=None, **ctx) -> SkillResult:
                 value={
                     "summary": f"{exc}\n\nHasil parsial:\n{history}",
                     "tools_used": tools_used,
+                    "files_written": files_written,
                     "iterations": i,
                     "partial": True,
                 },
@@ -105,6 +116,7 @@ def agentic_loop(task, goals=None, max_iterations=None, **ctx) -> SkillResult:
                 value={
                     "summary": decision.get("summary", "Selesai."),
                     "tools_used": tools_used,
+                    "files_written": files_written,
                     "iterations": i,
                 },
             )
@@ -120,12 +132,17 @@ def agentic_loop(task, goals=None, max_iterations=None, **ctx) -> SkillResult:
             result = skill.run(**args)
         except Exception as exc:  # noqa: BLE001
             result = SkillResult(ok=False, error=str(exc))
+        if tool in ("write_file", "edit_file"):
+            if isinstance(result, SkillResult) and result.ok and result.value:
+                files_written.append(str(result.value))
+            elif not isinstance(result, SkillResult):
+                files_written.append(str(result))
         transcript.append(f"[{i}] {tool}{args} -> {_result_text(result)}")
 
     return SkillResult(
         ok=False,
         error=f"agentic_loop mencapai batas {limit} iterasi tanpa selesai",
-        value={"tools_used": tools_used, "iterations": int(limit)},
+        value={"tools_used": tools_used, "files_written": files_written, "iterations": int(limit)},
     )
 
 

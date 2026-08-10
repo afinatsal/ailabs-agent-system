@@ -41,7 +41,7 @@ def _json_events(text: str) -> list[dict]:
     return events
 
 
-def _summarize(events: list[dict]) -> str:
+def _summarize(events: list[dict]) -> tuple[str, list[str]]:
     """Rangkum events: tool yang dipakai, file ditulis, dan jawaban akhir."""
     tools: list[str] = []
     files_written: list[str] = []
@@ -55,7 +55,7 @@ def _summarize(events: list[dict]) -> str:
             state = p.get("state") or {}
             inp = state.get("input") or {}
             fp = inp.get("filePath") if isinstance(inp, dict) else None
-            if fp and tool == "write":
+            if fp and tool in ("write", "edit"):
                 files_written.append(str(fp))
         if ev.get("type") == "text" and isinstance(p, dict):
             t = p.get("text")
@@ -65,10 +65,13 @@ def _summarize(events: list[dict]) -> str:
     if tools:
         summary.append("Tool yang dipakai: " + ", ".join(dict.fromkeys(tools)))
     if files_written:
-        summary.append("File ditulis: " + ", ".join(files_written))
+        summary.append("File ditulis: " + ", ".join(dict.fromkeys(files_written)))
     if final_parts:
         summary.append("Jawaban akhir:\n" + "\n".join(final_parts)[-1500:])
-    return "\n".join(summary) if summary else "(opencode tidak menghasilkan output)"
+    return (
+        "\n".join(summary) if summary else "(opencode tidak menghasilkan output)",
+        list(dict.fromkeys(files_written)),
+    )
 
 
 
@@ -133,13 +136,16 @@ def opencode_code(task: str, timeout: int = DEFAULT_TIMEOUT, **ctx) -> SkillResu
     stdout = proc.stdout or ""
     stderr = (proc.stderr or "").strip()
     events = _json_events(stdout)
-    summary = _summarize(events)
+    summary, files_written = _summarize(events)
+    value = {"returncode": proc.returncode, "summary": summary}
+    if files_written:
+        value["files_written"] = files_written
 
     if proc.returncode != 0:
         return SkillResult(
             ok=False,
             error=f"opencode exit {proc.returncode}: {stderr[:500] or summary}",
-            value={"returncode": proc.returncode, "summary": summary},
+            value=value,
         )
     if not events:
         return SkillResult(
@@ -149,7 +155,7 @@ def opencode_code(task: str, timeout: int = DEFAULT_TIMEOUT, **ctx) -> SkillResu
         )
     return SkillResult(
         ok=True,
-        value={"returncode": proc.returncode, "summary": summary},
+        value=value,
     )
 
 

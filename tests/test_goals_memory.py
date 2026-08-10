@@ -207,3 +207,122 @@ def test_dev_reads_taste_design_for_frontend(orchestrator):
     dev = orchestrator.registry.get("dev")
     assert dev._is_frontend(_task(description="Buat halaman web dengan tailwind"))
     assert not dev._is_frontend(_task(description="Tulis API backend di FastAPI"))
+
+
+# ---------- fix mega/big-project: bukti file utk reviewer ----------
+
+
+def test_collect_evidence_reads_written_files(orchestrator, tmp_path):
+    slug = "proyek-bukti"
+    ws = orchestrator.workspace_path / slug
+    (ws / "backend").mkdir(parents=True, exist_ok=True)
+    (ws / "backend" / "app.py").write_text("print('app')", encoding="utf-8")
+    job = orchestrator.submit("Buat backend.", project=slug)
+    result = AgentResult(
+        success=True,
+        text="Kode backend selesai.",
+        output={"files_written": [str(ws / "backend" / "app.py")]},
+    )
+    evidence = orchestrator.executor._collect_evidence(
+        job, _task(id="t1", job_id=job.id, agent_name="dev"), result
+    )
+    assert "backend/app.py" in evidence
+    assert "print('app')" in evidence
+
+
+def test_collect_evidence_uses_agentic_files(orchestrator, tmp_path):
+    slug = "proyek-loop"
+    ws = orchestrator.workspace_path / slug
+    ws.mkdir(parents=True, exist_ok=True)
+    (ws / "index.html").write_text("<h1>Halo</h1>", encoding="utf-8")
+    job = orchestrator.submit("Buat halaman.", project=slug)
+    result = AgentResult(
+        success=True,
+        text="Loop selesai.",
+        output={
+            "agentic_loop_result": {
+                "files_written": [str(ws / "index.html")],
+                "tools_used": ["write_file"],
+            }
+        },
+    )
+    evidence = orchestrator.executor._collect_evidence(
+        job, _task(id="t1", job_id=job.id, agent_name="dev"), result
+    )
+    assert "index.html" in evidence
+    assert "<h1>Halo</h1>" in evidence
+
+
+def test_collect_evidence_rejects_path_outside_workspace(orchestrator):
+    job = orchestrator.submit("Proyek aman.", project="proyek-aman")
+    result = AgentResult(
+        success=True,
+        text="x",
+        output={"files_written": ["/etc/passwd"]},
+    )
+    evidence = orchestrator.executor._collect_evidence(
+        job, _task(id="t1", job_id=job.id, agent_name="dev"), result
+    )
+    assert "passwd" not in evidence
+
+
+def test_vera_review_receives_evidence(orchestrator):
+    vera = orchestrator.registry.get("vera")
+    verdict = vera.review(
+        _task(input={"goals": ["file ada"]}),
+        AgentResult(text="klaim tanpa kode"),
+        evidence="### app.py\n```\nprint('ok')\n```",
+    )
+    assert verdict.approved is True  # mock reviewer selalu approve
+    # pastikan prompt yang dibangun mengandung evidence (uji via raw llm)
+    captured = []
+
+    class Spy(MockClient):
+        def generate(self, system, user, **kwargs):
+            captured.append(user)
+            return super().generate(system, user, **kwargs)
+
+    spy = Spy()
+    vera.llm = spy
+    vera.review(
+        _task(input={"goals": ["file ada"]}),
+        AgentResult(text="klaim"),
+        evidence="### app.py\n```\nprint('ok')\n```",
+    )
+    assert any("ISI FILE DARI WORKSPACE" in u for u in captured)
+
+
+def test_agentic_loop_reports_files_written(tmp_path):
+    from pathlib import Path
+
+    from ailabs.skills.registry import SkillRegistry
+
+    class DecisionLLM(MockClient):
+        def __init__(self, decisions):
+            super().__init__()
+            self._decisions = list(decisions)
+            self._calls = 0
+
+        def generate(self, system, user, **kwargs):
+            if self._calls >= len(self._decisions):
+                return '{"done": true, "summary": "habis"}'
+            d = self._decisions[self._calls]
+            self._calls += 1
+            return json.dumps(d)
+
+    llm = DecisionLLM(
+        [
+            {"tool": "write_file", "args": {"path": "halo.txt", "content": "hai"}},
+            {"done": True, "summary": "File ditulis."},
+        ]
+    )
+    skills = SkillRegistry(
+        context={"workspace_path": str(tmp_path), "llm": llm, "skills": None}
+    )
+    skills.inject_context(skills=skills)
+    res = skills.get("agentic_loop").run(task="Buat halo.txt")
+    assert res.ok
+    expected = str(Path(tmp_path / "halo.txt").resolve())
+    assert res.value["files_written"] == [expected]
+    assert (Path(tmp_path / "halo.txt")).exists()
+

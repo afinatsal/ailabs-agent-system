@@ -28,7 +28,15 @@ menjalankannya, hasil dikembalikan ke LLM sebagai konteks, dan berulang sampai
 goals task tercapai. **Semua worker agent** (dev, rita, rio, wren, dara, qa)
 otomatis memakai jalur ini di awal `execute()` — bila skill tersedia, task
 dikerjakan otonom; bila tidak/gagal, agent jatuh ke jalur lamanya (fallback).
-Batas iterasi diatur lewat `AGENTIC_MAX_ITERATIONS` di `.env` (default 8).
+Batas iterasi diatur lewat `AGENTIC_MAX_ITERATIONS` di `.env` (default 5).
+
+### Review berbasis bukti file
+
+Saat agent menulis file (lewat `write_file`/`agentic_loop`/`opencode`), executor
+otomatis mengumpulkan **isi file tersebut dari workspace** dan menyuntikkannya ke
+review Vera (`_collect_evidence`). Reviewer tidak lagi menilai dari narasi teks
+saja — ia bisa memverifikasi kode yang benar-benar ada. File yang sama juga
+didaftarkan (tanpa duplikat, path dipaksa di dalam workspace project).
 
 ### Delegasi koding ke opencode
 

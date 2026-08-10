@@ -71,3 +71,14 @@ Path relatif ke folder workspace, sertakan subfolder bila perlu (mis.
 `web/index.html`). Tulis blok file DI SAMPING penjelasanmu, bukan menggantikannya.
 
 Output berupa penjelasan + kode + blok file, bukan JSON.
+
+## Lokasi file TUNGGAL & tanpa duplikat (PENTING)
+- Setiap artefak ditulis di TEPAT SATU lokasi tetap — jangan menyalin file yang
+  sama ke beberapa folder (mis. jangan menulis `index.html` sekaligus di root,
+  `frontend/`, dan `web/`).
+- Sebelum menulis, cek file yang sudah ada (`list_files`/`read_file`): kalau
+  sudah ada, EDIT file itu (`edit_file`) — jangan buat versi duplikat baru.
+- Backend di `backend/`, frontend di `frontend/`; jangan menimpa hasil kerja
+  Dara (mis. `web/`, `design/style-guide.md`) tanpa alasan jelas.
+- Sebutkan path file yang kamu buat/ubah di ringkasan supaya reviewer bisa
+  memverifikasi isinya.

@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     openai_compat_model: str = "kr/auto"
     default_model: str = "gemini-2.5-flash"
 
+    # Retry saat LLM kena rate-limit/429 (backoff eksponensial).
+    llm_max_retries: int = 3
+    llm_retry_delay: float = 2.0
+
     # Supabase (postgrest client)
     # Key baru Supabase (2025+): PUBLISHABLE = pengganti anon (RLS aktif),
     # SECRET = pengganti service_role (bypass RLS). ANON_KEY masih didukung (legacy).
@@ -63,7 +67,8 @@ class Settings(BaseSettings):
     enable_opencode: bool = False
 
     # Batas iterasi skill agentic_loop (loop otonom pikir -> tool -> amati).
-    agentic_max_iterations: int = 8
+    # Kecil = hemat token & jarang kena 429 rate-limit; besar = lebih mandiri.
+    agentic_max_iterations: int = 5
 
     # Obsidian (opsional)
     obsidian_vault_path: str = ""
