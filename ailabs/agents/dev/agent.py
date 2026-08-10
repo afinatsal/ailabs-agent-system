@@ -1,4 +1,11 @@
-"""Dev — Code Agent. Implementasi & perbaikan kode (pakai skill code_exec).
+"""Dev — Code Agent. Implementasi & perbaikan kode.
+
+Urutan eksekusi:
+  Path A: `agentic_loop` — loop otonom memakai LLM sendiri (pikir -> tool ->
+          amati -> ulang) sampai goals task tercapai. Menggantikan gaya "sekali
+          tembak"; Dev bisa baca/edit/grep/test file sendiri seperti agent CLI.
+  Path B: `opencode_code` — delegasikan ke agent opencode (menulis file sendiri).
+  Path C: fallback — LLM menulis kode, lalu `code_exec` menguji.
 
 Untuk task frontend, Dev juga membaca skill `taste_design` (pedoman anti-slop)
 supaya output-nya kohesif dengan style-guide yang dibuat Dara.
@@ -31,6 +38,7 @@ class CodeAgent(BaseAgent):
         tools_used: list[str] = []
         run_result = ""
         exec_skill = self.skills.get("code_exec")
+        agentic_skill = self.skills.get("agentic_loop") if self.skills else None
         opencode_skill = self.skills.get("opencode_code") if self.skills else None
 
         user = self._build_prompt(task, context)
@@ -45,7 +53,28 @@ class CodeAgent(BaseAgent):
                 except Exception as exc:  # noqa: BLE001
                     user += f"\n\n(taste_design gagal dimuat: {exc})"
 
-        # Path A: delegasikan task koding ke agent opencode (menulis file sendiri).
+        # Path A: loop otonom — Dev memutuskan tool sendiri memakai LLM.
+        if agentic_skill is not None:
+            try:
+                goals = list(task.goals or [])
+                if isinstance(task.input, dict):
+                    goals = list(task.input.get("goals", [])) + goals
+                loop = agentic_skill.run(task=user, goals=goals)
+                if isinstance(loop, SkillResult) and loop.ok:
+                    value = loop.value if isinstance(loop.value, dict) else {}
+                    loop_tools = list(value.get("tools_used", []))
+                    tools_used.append("agentic_loop")
+                    tools_used.extend(loop_tools)
+                    return self._to_result(
+                        str(value.get("summary", "")),
+                        extra_tools=tools_used,
+                        extra_output={"agentic_loop_result": value},
+                    )
+                run_result = {"agentic_loop_error": getattr(loop, "error", "agentic_loop gagal")}
+            except Exception as exc:  # noqa: BLE001
+                run_result = {"agentic_loop_error": str(exc)}
+
+        # Path B: delegasikan task koding ke agent opencode (menulis file sendiri).
         if opencode_skill is not None:
             try:
                 oc = opencode_skill.run(task=user, timeout=900)
@@ -62,7 +91,7 @@ class CodeAgent(BaseAgent):
             except Exception as exc:  # noqa: BLE001
                 run_result = {"opencode_error": str(exc)}
 
-        # Path B: fallback — LLM menulis kode, lalu code_exec menguji.
+        # Path C: fallback — LLM menulis kode, lalu code_exec menguji.
         try:
             text = self.llm.generate(self.system_prompt(), user)
         except LLMError as exc:

@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     # test tidak menjalankan opencode asli.
     enable_opencode: bool = False
 
+    # Batas iterasi skill agentic_loop (loop otonom pikir -> tool -> amati).
+    agentic_max_iterations: int = 8
+
     # Obsidian (opsional)
     obsidian_vault_path: str = ""
 

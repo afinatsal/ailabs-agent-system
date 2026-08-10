@@ -4,6 +4,7 @@ Supabase."""
 
 from __future__ import annotations
 
+import json
 import subprocess
 
 from ailabs.llm.mock import MockClient
@@ -43,6 +44,10 @@ def test_new_skills_registered(orchestrator):
         "data_analysis",
         "translation",
         "opencode_code",
+        "agentic_loop",
+        "glob_files",
+        "grep_files",
+        "edit_file",
     }.issubset(names)
 
 
@@ -230,3 +235,95 @@ def test_dev_falls_back_to_llm_without_opencode_flag(orchestrator):
     result = agent.execute(_task(agent_name="dev", description="Buat script python"))
     assert result.success
     assert "opencode_code" not in result.tools_used
+
+
+# ---------- skill agentic_loop ----------
+
+
+class _DecisionLLM(MockClient):
+    """LLM tiruan: mengembalikan urutan keputusan JSON untuk tiap iterasi."""
+
+    def __init__(self, decisions):
+        super().__init__()
+        self._decisions = list(decisions)
+        self._calls = 0
+
+    def generate(self, system, user, **kwargs):
+        if self._calls >= len(self._decisions):
+            return '{"done": true, "summary": "habis"}'
+        decision = self._decisions[self._calls]
+        self._calls += 1
+        return json.dumps(decision)
+
+
+def test_agentic_loop_runs_tools_until_done(tmp_path):
+    """Loop otonom memanggil tool sampai LLM menyatakan selesai."""
+    llm = _DecisionLLM(
+        [
+            {"tool": "write_file", "args": {"path": "halo.txt", "content": "hai"}},
+            {"done": True, "summary": "File halo.txt berhasil dibuat."},
+        ]
+    )
+    skills = SkillRegistry(
+        context={"workspace_path": str(tmp_path), "llm": llm, "skills": None}
+    )
+    # skills registry dipakai untuk lookup tool
+    skills.inject_context(skills=skills)
+    res = skills.get("agentic_loop").run(task="Buat file halo.txt", goals=["file ada"])
+    assert isinstance(res, SkillResult)
+    assert res.ok
+    assert res.value["summary"] == "File halo.txt berhasil dibuat."
+    assert res.value["tools_used"] == ["write_file"]
+    assert (tmp_path / "halo.txt").read_text() == "hai"
+
+
+def test_agentic_loop_stops_at_max_iterations(tmp_path):
+    """Saat LLM tidak kunjung selesai, loop berhenti dengan error."""
+    llm = _DecisionLLM([{"tool": "list_files", "args": {"rel": "."}}] * 10)
+    skills = SkillRegistry(
+        context={"workspace_path": str(tmp_path), "llm": llm, "skills": None}
+    )
+    skills.inject_context(skills=skills)
+    res = skills.get("agentic_loop").run(
+        task="Cari sesuatu", max_iterations=3
+    )
+    assert isinstance(res, SkillResult)
+    assert not res.ok
+    assert "iterasi" in (res.error or "")
+
+
+def test_agentic_loop_requires_llm(tmp_path):
+    """Tanpa LLM di context, skill menolak."""
+    skills = SkillRegistry(context={"workspace_path": str(tmp_path), "skills": None})
+    skills.inject_context(skills=skills)
+    res = skills.get("agentic_loop").run(task="x")
+    assert isinstance(res, SkillResult)
+    assert not res.ok
+    assert "llm" in (res.error or "")
+
+
+def test_dev_uses_agentic_loop_when_decisions_ok(tmp_path):
+    """Dev memakai Path A (agentic_loop) jika LLM mengembalikan keputusan JSON."""
+    from ailabs.agents.dev.agent import create as dev_create
+    from ailabs.config.settings import Settings
+
+    llm = _DecisionLLM(
+        [
+            {"tool": "write_file", "args": {"path": "kode.py", "content": "print(1)"}},
+            {"done": True, "summary": "Kode selesai."},
+        ]
+    )
+    skills = SkillRegistry(
+        context={"workspace_path": str(tmp_path), "llm": llm, "skills": None}
+    )
+    skills.inject_context(skills=skills)
+
+    settings = Settings(llm_provider="mock", default_model="mock-model")
+    agent = dev_create(llm=llm, skills=skills, settings=settings, config=None)
+    result = agent.execute(
+        _task(agent_name="dev", description="Buat script python")
+    )
+    assert result.success
+    assert "agentic_loop" in result.tools_used
+    assert "write_file" in result.tools_used
+    assert (tmp_path / "kode.py").read_text() == "print(1)"

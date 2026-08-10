@@ -54,6 +54,8 @@ class AILabsOrchestrator:
             storage=self.storage,
             embedder=self.embedder,
             llm=self.llm,
+            skills=self.skills,
+            agentic_max_iterations=self.settings.agentic_max_iterations,
             _skill_log=self._skill_log,
             enable_opencode=self.settings.enable_opencode,
         )

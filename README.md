@@ -10,7 +10,7 @@ hasil, dan menyusun laporan akhir.
 |---|---|---|
 | **Mark** | CEO & Orchestrator — merencanakan, menugaskan, menyintesis laporan | — |
 | **Rita** | Research — riset & pengumpulan informasi | `web_search`, `fetch_url` |
-| **Dev** | Code — implementasi & perbaikan kode | `opencode_code`, `code_exec`, `taste_design` (frontend) |
+| **Dev** | Code — implementasi & perbaikan kode | `agentic_loop`, `opencode_code`, `code_exec`, `taste_design` (frontend) |
 | **Wren** | Writer — menulis dokumen & laporan | `obsidian_writer` |
 | **Dara** | Desain/UI — wireframe, style guide, layout | `taste_design`, `image_generate` |
 | **Rio** | Data Analyst — analisis data CSV/JSON | `data_analysis`, `code_exec` |
@@ -19,6 +19,15 @@ hasil, dan menyusun laporan akhir.
 
 Semua agent juga bisa **menyimpan hasil sebagai file lokal** lewat skill `write_file`
 (mis. "buat file landing page"). Lihat bagian *Hasil Kerja Menjadi File Lokal*.
+
+### Loop otonom (`agentic_loop`)
+
+Skill ini membuat agent bertindak seperti agent CLI: LLM memutuskan tool
+berikutnya (`read_file`, `grep_files`, `edit_file`, `code_exec`, dll), sistem
+menjalankannya, hasil dikembalikan ke LLM sebagai konteks, dan berulang sampai
+goals task tercapai. Dev memakainya sebagai jalur utama (Path A) — ia bisa
+membaca/mencari/mengedit/menguji file sendiri tanpa perlu opencode. Batas
+iterasi diatur lewat `AGENTIC_MAX_ITERATIONS` di `.env` (default 8).
 
 ### Delegasi koding ke opencode
 
